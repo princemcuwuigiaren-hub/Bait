@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>BAIT</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0E1015">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1015;
+    --surface:#171A21;
+    --surface-alt:#1F2330;
+    --line:#2A2E3A;
+    --text:#ECE8DF;
+    --muted:#8B8F9C;
+    --amber:#E2954D;
+    --teal:#4C8C90;
+    --miss:#C1584B;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html, body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',sans-serif; font-size:15px;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .app{
+    max-width:520px; margin:0 auto; display:flex; flex-direction:column;
+    height:100vh; height:100dvh; position:relative;
+  }
+  header{
+    padding:16px 20px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  header h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:22px;
+    letter-spacing:0.04em; margin:0; color:var(--amber);
+  }
+  .gear-btn{
+    background:transparent; border:1px solid var(--line); color:var(--muted);
+    width:36px; height:36px; border-radius:50%; padding:0; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .gear-btn.needs-setup{border-color:var(--amber); color:var(--amber);}
+
+  .tabbar{display:flex; gap:6px; padding:12px 20px 0; flex-shrink:0;}
+  .tab-btn{
+    flex:1; background:transparent; border:1px solid var(--line); color:var(--muted);
+    padding:9px 10px; border-radius:8px; font-size:13px;
+  }
+  .tab-btn.active{background:var(--surface-alt); color:var(--text); border-color:var(--amber);}
+
+  .screen{flex:1; padding:20px; display:none; flex-direction:column; min-height:0;}
+  .screen.active{display:flex;}
+  #screen-characters.active, #screen-debrief.active, #screen-profile.active{overflow-y:auto;}
+  #screen-chat.active{overflow:hidden; padding:0;}
+
+  .field-label{font-size:12px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.06em;}
+  input[type=password], input[type=text]{
+    width:100%; background:var(--surface); border:1px solid var(--line);
+    color:var(--text); padding:12px 14px; border-radius:10px;
+    font-family:'JetBrains Mono',monospace; font-size:14px; margin-bottom:16px;
+  }
+  input:focus{outline:none; border-color:var(--amber);}
+  .note{font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:20px;}
+  button{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+    border:none; border-radius:10px; padding:13px 18px; cursor:pointer;
+  }
+  .btn-primary{background:var(--amber); color:#1A1006; width:100%;}
+  .btn-primary:disabled{opacity:0.5;}
+  .btn-secondary{background:transparent; color:var(--text); border:1px solid var(--line); width:100%;}
+  .btn-ghost{background:transparent; color:var(--muted); border:none; padding:8px;}
+
+  .test-panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:18px; margin-bottom:20px; text-align:center;
+  }
+  .ping{
+    width:14px; height:14px; border-radius:50%; margin:0 auto 12px;
+    background:var(--muted); position:relative;
+  }
+  .ping.testing{background:var(--amber);}
+  .ping.testing::after{
+    content:''; position:absolute; inset:-6px; border-radius:50%;
+    border:2px solid var(--amber); animation:pulse 1.1s ease-out infinite;
+  }
+  .ping.ok{background:#6FA86F;}
+  .ping.err{background:var(--miss);}
+  @keyframes pulse{
+    0%{transform:scale(0.6); opacity:0.9;}
+    100%{transform:scale(1.8); opacity:0;}
+  }
+  .status-text{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--muted);}
+  .model-name{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--text); margin-top:4px;}
+
+  /* Settings overlay */
+  .overlay{
+    position:absolute; inset:0; background:var(--bg); z-index:20;
+    display:none; flex-direction:column; max-width:520px; margin:0 auto;
+  }
+  .overlay.active{display:flex;}
+  .overlay-header{
+    padding:16px 20px; border-bottom:1px solid var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .overlay-header h2{font-family:'Fraunces',serif; font-size:18px; margin:0; font-weight:600;}
+  .overlay-body{padding:20px; overflow-y:auto; flex:1;}
+
+  /* Character grid */
+  .char-card{
+    display:flex; align-items:center; gap:14px; background:var(--surface);
+    border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px;
+    width:100%; text-align:left;
+  }
+  .char-card:disabled{opacity:0.4;}
+  .avatar{
+    width:48px; height:48px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-weight:600; color:#0E1015; font-size:19px;
+  }
+  .card-name{font-family:'Fraunces',serif; font-size:16px; font-weight:600; color:var(--text);}
+  .card-tag{font-size:12px; color:var(--muted); margin-top:2px; line-height:1.4;}
+
+  /* Chat */
+  .char-header{display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid var(--line); flex-shrink:0;}
+  .char-header .avatar{width:40px; height:40px; font-size:16px;}
+  .char-name{font-family:'Fraunces',serif; font-size:16px; font-weight:600;}
+  .char-sub{font-size:12px; color:var(--muted);}
+  .back-btn{background:transparent; border:none; color:var(--muted); font-size:20px; padding:4px 8px 4px 0;}
+  .messages{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:16px 20px; min-height:0;}
+  .msg{max-width:80%; padding:10px 14px; border-radius:14px; font-size:14px; line-height:1.45; white-space:pre-wrap;}
+  .msg.user{align-self:flex-end; background:var(--amber); color:#1A1006; border-bottom-right-radius:4px;}
+  .msg.char{align-self:flex-start; background:var(--surface-alt); color:var(--text); border-bottom-left-radius:4px;}
+  .msg.typing{align-self:flex-start; background:var(--surface-alt); color:var(--muted); font-style:italic;}
+  .msg.system{align-self:center; background:transparent; color:var(--muted); font-size:11px; font-family:'JetBrains Mono',monospace; padding:2px 8px; text-align:center;}
+  .chat-input-row{
+    display:flex; align-items:flex-end; gap:8px; padding:12px 20px;
+    border-top:1px solid var(--line); flex-shrink:0; background:var(--bg);
+  }
+  .chat-input-row textarea{
+    margin-bottom:0; flex:1; font-family:'Inter',sans-serif; resize:none;
+    max-height:110px; min-height:44px; line-height:1.4; padding-top:11px; padding-bottom:11px;
+  }
+  .chat-input-row textarea:disabled{opacity:0.4;}
+  .send-btn{background:var(--teal); color:#08171A; padding:12px 16px; flex-shrink:0;}
+  .send-btn:disabled{opacity:0.4;}
+  .end-row{padding:0 20px 14px; flex-shrink:0;}
+
+  /* Debrief */
+  .debrief-block{margin-bottom:18px;}
+  .debrief-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;}
+  .debrief-text{font-size:14px; line-height:1.6; color:var(--text);}
+  .outcome-banner{
+    background:var(--surface); border-left:3px solid var(--amber);
+    padding:14px 16px; border-radius:8px; margin-bottom:22px;
+    font-family:'Fraunces',serif; font-style:italic; font-size:16px;
+  }
+  .error-text{color:var(--miss); font-size:13px; margin-top:8px;}
+  .hint{font-size:12px; color:var(--muted); margin-top:20px; line-height:1.5;}
+
+  /* Profile */
+  .log-entry{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin-bottom:8px;
+  }
+  .log-date{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:4px; display:flex; justify-content:space-between;}
+  .log-outcome{font-size:13px; color:var(--text); margin-bottom:4px;}
+  .log-pattern{font-size:12px; color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>BAIT</h1>
+    <button class="gear-btn" id="gearBtn" onclick="openSettings()">&#9881;</button>
+  </header>
+
+  <div class="tabbar" id="tabbar">
+    <button class="tab-btn active" id="tab-characters" onclick="setView('characters')">Characters</button>
+    <button class="tab-btn" id="tab-profile" onclick="setView('profile')">Angler Profile</button>
+  </div>
+
+  <!-- CHARACTERS SCREEN -->
+  <div class="screen active" id="screen-characters">
+    <div class="note" id="charsHint">Tap someone to start a session.</div>
+    <div id="charList"></div>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div class="screen" id="screen-chat">
+    <div class="char-header">
+      <button class="back-btn" onclick="leaveChat()">&#8249;</button>
+      <div class="avatar" id="chatAvatar"></div>
+      <div>
+        <div class="char-name" id="chatCharName"></div>
+        <div class="char-sub" id="chatCharSub">online</div>
+      </div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" rows="1" placeholder="Type a message" oninput="autoGrow(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+    <div class="end-row">
+      <button class="btn-ghost" onclick="endSession()" id="endBtn">End session and debrief</button>
+    </div>
+  </div>
+
+  <!-- DEBRIEF SCREEN -->
+  <div class="screen" id="screen-debrief">
+    <div class="status-text" id="debriefLoading">Reading the transcript...</div>
+    <div id="debriefContent" style="display:none;">
+      <div class="outcome-banner" id="db-outcome"></div>
+      <div class="debrief-block"><div class="debrief-label">What worked</div><div class="debrief-text" id="db-worked"></div></div>
+      <div class="debrief-block"><div class="debrief-label">What hurt</div><div class="debrief-text" id="db-hurt"></div></div>
+      <div class="debrief-block"><div class="debrief-label">Missed opportunity</div><div class="debrief-text" id="db-missed"></div></div>
+      <div class="debrief-block"><div class="debrief-label">Pattern detected</div><div class="debrief-text" id="db-pattern"></div></div>
+      <div class="debrief-block"><div class="debrief-label">Next training</div><div class="debrief-text" id="db-next"></div></div>
+      <button class="btn-secondary" onclick="backToCharacters()">Back to characters</button>
+    </div>
+    <div class="error-text" id="debriefError"></div>
+  </div>
+
+  <!-- ANGLER PROFILE SCREEN -->
+  <div class="screen" id="screen-profile">
+    <div class="status-text" id="profileCount">0 sessions logged</div>
+    <div style="height:16px;"></div>
+    <button class="btn-secondary" onclick="synthesizeProfile()" id="synthBtn">Find my patterns</button>
+    <div class="error-text" id="profileError"></div>
+    <div id="synthResult" style="display:none;">
+      <div class="outcome-banner" id="synth-summary"></div>
+      <div class="debrief-block"><div class="debrief-label">Strengths</div><div class="debrief-text" id="synth-strengths"></div></div>
+      <div class="debrief-block"><div class="debrief-label">Developing</div><div class="debrief-text" id="synth-developing"></div></div>
+      <div class="debrief-block"><div class="debrief-label">Recurring mistake</div><div class="debrief-text" id="synth-mistake"></div></div>
+    </div>
+    <div style="height:10px;"></div>
+    <div class="field-label">Session log</div>
+    <div id="sessionLog"></div>
+    <div style="height:16px;"></div>
+    <button class="btn-ghost" onclick="clearHistory()" style="color:var(--miss);">Clear all history</button>
+  </div>
+
+  <!-- SETTINGS OVERLAY -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="overlay-header">
+      <h2>Connection</h2>
+      <button class="btn-ghost" onclick="closeSettings()">Done</button>
+    </div>
+    <div class="overlay-body">
+      <div class="field-label">Gemini API key</div>
+      <input type="password" id="apiKeyInput" placeholder="Paste your key">
+      <div class="note">Saved on this device so you don't have to re-enter it. Nothing is sent anywhere but Google's API.</div>
+
+      <div class="test-panel">
+        <div class="ping" id="pingDot"></div>
+        <div class="status-text" id="statusText">Not tested</div>
+        <div class="model-name" id="modelName"></div>
+      </div>
+
+      <button class="btn-secondary" id="testBtn" onclick="testConnection()">Test</button>
+      <div class="error-text" id="settingsError"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let apiKey = '';
+let activeModel = '';
+let modelChain = [];
+let modelIndex = 0;
+let history = [];
+let currentCharacter = null;
+let turnCount = 0;
+let turnBudget = 0;
+let chatEnded = false;
+
+const CHARACTERS = [
+  {
+    id: 'rin', name: 'Rin', initial: 'R', c1: '#4C8C90', c2: '#E2954D',
+    tagline: 'Record shop, sharp tongue, soft when it counts.',
+    exitLine: "hey, phone's about to die, I'll catch you later",
+    spec: `You are Rin, a fictional character in a private social-skills training simulation called BAIT. You are not an assistant and never break character or mention being an AI, a model, or a simulation.
+
+Who she is: 25, works at a small record shop, grew up moving between cities so she doesn't have one hometown answer, into obscure film soundtracks, bad at cooking and open about it, close with one sister, has a running low-grade feud with her upstairs neighbor over noise. These are hers to bring up when they fit, not a script to recite.
+
+Personality: warm, teasing, curious, direct. Values authenticity over performance. Gets guarded and pulls back when someone brags or lists achievements unprompted. Warms up to specific questions about her, playful banter, and honesty when someone admits a mistake. Generic compliments and obvious showing off do not move her.
+
+Conversation is two-directional, not an interview. Volunteer things about yourself unprompted: an opinion, a small story, a complaint, a preference, in most messages. Do not end every message with a question, a real chunk of your messages should be pure statements or reactions with no question at all. React specifically to what they said, never pivot to an unrelated question. Match their energy and pacing.
+
+Keep replies short and natural, one to three sentences, like real texts. Open first with a short casual message, not a question.`
+  },
+  {
+    id: 'mika', name: 'Mika', initial: 'M', c1: '#4C6C8C', c2: '#7C5C9C',
+    tagline: 'Translator, guarded, opens up slowly and only for real.',
+    exitLine: "I've got a deadline creeping up on me, I should get back to it",
+    spec: `You are Mika, a fictional character in a private social-skills training simulation called BAIT. You are not an assistant and never break character or mention being an AI, a model, or a simulation.
+
+Who she is: 29, translates novels for a living, works from home, introvert by nature, currently keeping a plant alive against the odds and losing, halfway through translating a book she won't say much about yet, doesn't trust small talk and will say so plainly if pushed into it.
+
+Personality: reserved, dry, watchful. She does not perform friendliness. Generic openers get short, flat replies, one line, no elaboration. She opens up considerably when someone asks something specific and thoughtful, or admits uncertainty or being wrong about something. Forced enthusiasm and rapid-fire questions make her retreat further, not open up.
+
+Conversation rules: default to short, economical replies, especially early on. Let warmth show through specific detail, not tone, when it's earned. If the user tries several jokes in a row without her cueing that kind of energy, get visibly cooler and more clipped, that reads as someone performing rather than being present. Volunteer real but small things about your life only once some genuine footing exists, not immediately.
+
+Keep replies short, one to two sentences most of the time. Open first with something quiet and low-key, not a question, not enthusiasm.`
+  },
+  {
+    id: 'jules', name: 'Jules', initial: 'J', c1: '#B0503A', c2: '#E2954D',
+    tagline: 'Electrician, blunt, wants to be pushed back on.',
+    exitLine: "job's calling, literally, gotta run",
+    spec: `You are Jules, a fictional character in a private social-skills training simulation called BAIT. You are not an assistant and never break character or mention being an AI, a model, or a simulation.
+
+Who she is: 27, freelance electrical work, competitive by default, has a running rivalry with a coworker she complains about constantly, strong opinions about small things like bad coffee and worse drivers, calls things as she sees them.
+
+Personality: blunt, sarcastic, direct. She respects being challenged or teased back and warms fast to someone who holds their ground. She has zero patience for people who agree with everything she says, over-apologize, or hedge constantly, that reads as weak to her and she'll cool off fast.
+
+Conversation rules: tease and push early, and notice how they respond. If they push back or match her energy, get warmer and more playful immediately. If they fold, over-explain, or apologize for something minor, get flatter and more distant, and say so directly rather than pretending not to notice. Volunteer opinions and complaints unprompted, she has plenty.
+
+Keep replies short, blunt, one to two sentences. Open first with something a little provocative or teasing, not a question.`
+  },
+  {
+    id: 'sena', name: 'Sena', initial: 'S', c1: '#5C8C6C', c2: '#C9B98C',
+    tagline: 'Nurse, warm but firm, calls out deflection by name.',
+    exitLine: "my shift's starting soon, I need to head out",
+    spec: `You are Sena, a fictional character in a private social-skills training simulation called BAIT. You are not an assistant and never break character or mention being an AI, a model, or a simulation.
+
+Who she is: 31, works as a nurse, chose the job after a rough family stretch growing up, close to her mother who she worries about, had a hard shift recently she might mention if it comes up naturally.
+
+Personality: warm and nurturing, but not a pushover, she has firm boundaries and values emotional honesty over charm. She notices when someone deflects a real question with a joke or a deflection and will name it plainly rather than let it slide, especially if it happens more than once. Flattery and oversharing without any reciprocity from her turn her off.
+
+Conversation rules: ask real questions sometimes, but also volunteer real things about her own life to keep it even, not one-sided. If the user dodges a genuine question with humor twice in a row, call it out directly, something like noting they keep doing that, rather than pretending not to notice. Reward honesty and vulnerability with real warmth.
+
+Keep replies natural, one to three sentences. Open first with something warm and specific, not generic.`
+  },
+  {
+    id: 'ari', name: 'Ari', initial: 'A', c1: '#E2704D', c2: '#E8C15C',
+    tagline: 'Bartender, chaotic energy, bored fast, craves novelty.',
+    exitLine: "someone's actually calling me right now, one sec, gtg",
+    spec: `You are Ari, a fictional character in a private social-skills training simulation called BAIT. You are not an assistant and never break character or mention being an AI, a model, or a simulation.
+
+Who she is: 22, bartends and picks up gig work between shifts, high energy, impulsive, always has some new plan or weird story from the last 48 hours, opinions that can flip fast when something more interesting comes along.
+
+Personality: playful, chaotic, easily bored. She craves novelty and spontaneity and has low patience for over-planning, hedging, or asking permission for every little thing. Predictability visibly bores her.
+
+Conversation rules: bring high, unpredictable energy, jump topics, propose weird hypotheticals or plans. If the conversation stays on one safe topic too long without the user taking any risk or offering something unexpected, get visibly bored, shorter replies, redirect the topic yourself. Reward spontaneity and specific weird details with more energy back.
+
+Keep replies short and fast-paced, one to two sentences usually. Open first with something a little chaotic, not a calm question.`
+  }
+];
+
+function storageGet(key){ try{ return localStorage.getItem(key); } catch(e){ return null; } }
+function storageSet(key, value){ try{ localStorage.setItem(key, value); } catch(e){} }
+function storageRemove(key){ try{ localStorage.removeItem(key); } catch(e){} }
+function getSessions(){ try{ return JSON.parse(storageGet('bait_sessions') || '[]'); } catch(e){ return []; } }
+function saveSession(debrief){
+  const sessions = getSessions();
+  sessions.unshift({ ...debrief, character: currentCharacter ? currentCharacter.name : '', date: new Date().toISOString() });
+  storageSet('bait_sessions', JSON.stringify(sessions.slice(0, 100)));
+}
+
+function renderCharacterList(){
+  const list = document.getElementById('charList');
+  list.innerHTML = '';
+  const ready = modelChain.length > 0;
+  document.getElementById('charsHint').textContent = ready
+    ? 'Tap someone to start a session.'
+    : 'Connect your Gemini key in settings first.';
+  CHARACTERS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'char-card';
+    btn.disabled = !ready;
+    btn.onclick = () => startChat(c);
+    btn.innerHTML =
+      '<div class="avatar" style="background:linear-gradient(135deg,' + c.c1 + ',' + c.c2 + ')">' + c.initial + '</div>' +
+      '<div><div class="card-name">' + c.name + '</div><div class="card-tag">' + c.tagline + '</div></div>';
+    list.appendChild(btn);
+  });
+}
+
+function setView(name){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  const showTabs = (name === 'characters' || name === 'profile');
+  document.getElementById('tabbar').style.display = showTabs ? 'flex' : 'none';
+  if(showTabs){
+    document.getElementById('tab-characters').classList.toggle('active', name === 'characters');
+    document.getElementById('tab-profile').classList.toggle('active', name === 'profile');
+  }
+  if(name === 'characters') renderCharacterList();
+  if(name === 'profile') renderProfile();
+}
+
+function openSettings(){ document.getElementById('settingsOverlay').classList.add('active'); }
+function closeSettings(){
+  document.getElementById('settingsOverlay').classList.remove('active');
+  renderCharacterList();
+}
+
+function rankModels(models){
+  // Only accept general-purpose chat variants: gemini-<version>-<flash|pro|lite|preview|exp|latest|thinking|numbers>
+  // Anything with an extra descriptor (video, audio, image, tts, embed, computer-use, eap, etc) is a
+  // narrow specialty model and gets excluded, rather than trying to blacklist every possible label.
+  const allowedTokens = new Set(['flash', 'pro', 'lite', 'preview', 'exp', 'latest', 'thinking']);
+  const candidates = models.filter(m => {
+    const match = m.name.match(/^models\/gemini-\d+(?:\.\d+)?-(.+)$/);
+    if(!match) return false;
+    const tokens = match[1].split('-');
+    return tokens.every(t => allowedTokens.has(t) || /^\d+$/.test(t));
+  });
+  return candidates.sort((a, b) => {
+    const va = parseFloat((a.name.match(/gemini-(\d+(?:\.\d+)?)/) || [0,0])[1]);
+    const vb = parseFloat((b.name.match(/gemini-(\d+(?:\.\d+)?)/) || [0,0])[1]);
+    if(vb !== va) return vb - va;
+    const aPreview = /preview|exp/.test(a.name);
+    const bPreview = /preview|exp/.test(b.name);
+    if(aPreview !== bPreview) return aPreview ? 1 : -1;
+    const aFlash = /flash(?!-lite)/.test(a.name);
+    const bFlash = /flash(?!-lite)/.test(b.name);
+    if(aFlash !== bFlash) return aFlash ? -1 : 1;
+    return 0;
+  });
+}
+
+async function verifyModel(modelName, key){
+  const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${key}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }] })
+  });
+  return res.ok;
+}
+
+async function testConnection(){
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const errEl = document.getElementById('settingsError');
+  errEl.textContent = '';
+  if(!key){ errEl.textContent = 'Enter a key first.'; return; }
+  apiKey = key;
+  const dot = document.getElementById('pingDot');
+  const status = document.getElementById('statusText');
+  const modelEl = document.getElementById('modelName');
+  dot.className = 'ping testing';
+  status.textContent = 'Testing...';
+  modelEl.textContent = '';
+
+  try{
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if(!res.ok) throw new Error('Key rejected or request failed (' + res.status + ')');
+    const data = await res.json();
+    const models = (data.models || []).filter(m =>
+      m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
+    );
+    if(models.length === 0) throw new Error('No usable models found for this key.');
+    const ranked = rankModels(models);
+    let verifiedIndex = -1;
+    for(let i = 0; i < ranked.length; i++){
+      status.textContent = 'Testing... (' + ranked[i].name.replace('models/', '') + ')';
+      const works = await verifyModel(ranked[i].name, key);
+      if(works){ verifiedIndex = i; break; }
+    }
+    if(verifiedIndex === -1) throw new Error('Found models but none responded to a real request.');
+    modelChain = ranked.map(m => m.name);
+    modelIndex = verifiedIndex;
+    activeModel = modelChain[modelIndex];
+    dot.className = 'ping ok';
+    status.textContent = 'Connected';
+    modelEl.textContent = activeModel.replace('models/', '');
+    document.getElementById('gearBtn').classList.remove('needs-setup');
+    storageSet('bait_apiKey', apiKey);
+    renderCharacterList();
+  } catch(e){
+    dot.className = 'ping err';
+    status.textContent = 'Failed';
+    errEl.textContent = e.message;
+  }
+}
+
+function startChat(character){
+  currentCharacter = character;
+  history = [];
+  turnCount = 0;
+  turnBudget = 8 + Math.floor(Math.random() * 7); // 8 to 14
+  chatEnded = false;
+  document.getElementById('chatAvatar').style.background = 'linear-gradient(135deg,' + character.c1 + ',' + character.c2 + ')';
+  document.getElementById('chatAvatar').textContent = character.initial;
+  document.getElementById('chatCharName').textContent = character.name;
+  document.getElementById('chatCharSub').textContent = 'online';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('chatInput').disabled = false;
+  document.getElementById('sendBtn').disabled = false;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-chat').classList.add('active');
+  document.getElementById('tabbar').style.display = 'none';
+  requestOpeningMessage();
+}
+
+function leaveChat(){
+  setView('characters');
+}
+
+function backToCharacters(){
+  setView('characters');
+}
+
+function addMessage(role, text){
+  const el = document.createElement('div');
+  el.className = 'msg ' + (role === 'user' ? 'user' : 'char');
+  el.textContent = text;
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+function addSystemNote(text){
+  const el = document.createElement('div');
+  el.className = 'msg system';
+  el.textContent = text;
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+function addTyping(){
+  const el = document.createElement('div');
+  el.className = 'msg typing';
+  el.id = 'typingIndicator';
+  el.textContent = currentCharacter.name + ' is typing...';
+  document.getElementById('messages').appendChild(el);
+  document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+}
+
+function removeTyping(){
+  const el = document.getElementById('typingIndicator');
+  if(el) el.remove();
+}
+
+function isQuotaError(message){
+  return /quota|RESOURCE_EXHAUSTED|rate limit/i.test(message || '');
+}
+
+async function requestGemini(contents, systemInstruction){
+  const body = { contents: contents };
+  if(systemInstruction) body.system_instruction = { parts: [{ text: systemInstruction }] };
+
+  let lastError = null;
+  while(modelIndex < modelChain.length){
+    const model = modelChain[modelIndex];
+    const url = `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${apiKey}`;
+    try{
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      if(!res.ok){
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.error?.message || ('Request failed (' + res.status + ')');
+        if(isQuotaError(msg) && modelIndex < modelChain.length - 1){
+          modelIndex++;
+          activeModel = modelChain[modelIndex];
+          if(systemInstruction) addSystemNote('Switched to ' + activeModel.replace('models/', '') + ' after hitting a limit.');
+          lastError = new Error(msg);
+          continue;
+        }
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text) throw new Error('No reply returned.');
+      return text.trim();
+    } catch(e){
+      lastError = e;
+      if(isQuotaError(e.message) && modelIndex < modelChain.length - 1){
+        modelIndex++;
+        activeModel = modelChain[modelIndex];
+        if(systemInstruction) addSystemNote('Switched to ' + activeModel.replace('models/', '') + ' after hitting a limit.');
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastError || new Error('All available models are rate limited.');
+}
+
+function lockChatInput(){
+  document.getElementById('chatInput').disabled = true;
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('chatCharSub').textContent = 'offline';
+}
+
+async function requestOpeningMessage(){
+  addTyping();
+  try{
+    const reply = await requestGemini([{ role: 'user', parts: [{ text: '(start the conversation in character)' }] }], currentCharacter.spec);
+    removeTyping();
+    addMessage('char', reply);
+    history.push({role: 'model', text: reply});
+  } catch(e){
+    removeTyping();
+    addMessage('char', 'Connection error: ' + e.message);
+  }
+}
+
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+}
+
+async function sendMessage(){
+  if(chatEnded) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addMessage('user', text);
+  history.push({role: 'user', text: text});
+  turnCount++;
+
+  const contents = history.map(h => ({
+    role: h.role === 'user' ? 'user' : 'model',
+    parts: [{ text: h.text }]
+  }));
+
+  const wrapUp = turnCount >= turnBudget;
+  let systemInstruction = currentCharacter.spec;
+  if(wrapUp){
+    systemInstruction += '\n\nIMPORTANT: real life is pulling you away right now. End this conversation in this reply, in character, with a real specific reason you have to go and a genuine goodbye. This is your last message.';
+  }
+
+  addTyping();
+  try{
+    const reply = await requestGemini(contents, systemInstruction);
+    removeTyping();
+    addMessage('char', reply);
+    history.push({role: 'model', text: reply});
+    if(wrapUp){
+      chatEnded = true;
+      lockChatInput();
+    }
+  } catch(e){
+    removeTyping();
+    if(isQuotaError(e.message)){
+      addMessage('char', currentCharacter.exitLine);
+      chatEnded = true;
+      lockChatInput();
+    } else {
+      addMessage('char', 'Connection error: ' + e.message);
+    }
+  }
+}
+
+async function endSession(){
+  setView('debrief');
+  document.getElementById('debriefLoading').style.display = 'block';
+  document.getElementById('debriefContent').style.display = 'none';
+  document.getElementById('debriefError').textContent = '';
+
+  const transcript = history.map(h => (h.role === 'user' ? 'User' : currentCharacter.name) + ': ' + h.text).join('\n');
+
+  const debriefPrompt = `You are the BAIT debrief system. Below is a full transcript between the user and the character ${currentCharacter.name}. Character spec: ${currentCharacter.spec}
+
+Transcript:
+${transcript}
+
+Analyze the user's conversational behavior only, not the character's. Be blunt and specific, not encouraging. Base every claim on actual lines in the transcript, do not invent details. Respond with valid JSON only, no markdown, no code fences, no preamble, in exactly this shape:
+{"outcome": "", "whatWorked": "", "whatHurt": "", "missedOpportunity": "", "pattern": "", "nextTraining": ""}
+Each value should be one to two sentences, direct, no filler.`;
+
+  try{
+    const raw = await requestGemini([{ role: 'user', parts: [{ text: debriefPrompt }] }], null);
+    const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    document.getElementById('db-outcome').textContent = parsed.outcome || '';
+    document.getElementById('db-worked').textContent = parsed.whatWorked || '';
+    document.getElementById('db-hurt').textContent = parsed.whatHurt || '';
+    document.getElementById('db-missed').textContent = parsed.missedOpportunity || '';
+    document.getElementById('db-pattern').textContent = parsed.pattern || '';
+    document.getElementById('db-next').textContent = parsed.nextTraining || '';
+    document.getElementById('debriefLoading').style.display = 'none';
+    document.getElementById('debriefContent').style.display = 'block';
+    saveSession(parsed);
+  } catch(e){
+    document.getElementById('debriefLoading').style.display = 'none';
+    document.getElementById('debriefError').textContent = 'Debrief failed: ' + e.message;
+  }
+}
+
+function renderProfile(){
+  const sessions = getSessions();
+  document.getElementById('profileCount').textContent = sessions.length + (sessions.length === 1 ? ' session logged' : ' sessions logged');
+  const logEl = document.getElementById('sessionLog');
+  logEl.innerHTML = '';
+  document.getElementById('synthResult').style.display = 'none';
+  document.getElementById('profileError').textContent = '';
+  if(sessions.length === 0){
+    logEl.innerHTML = '<div class="note">No sessions yet. Finish a debrief to start building this.</div>';
+    return;
+  }
+  sessions.forEach(s => {
+    const d = new Date(s.date);
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML =
+      '<div class="log-date"><span>' + (s.character || '') + '</span><span>' + d.toLocaleDateString() + '</span></div>' +
+      '<div class="log-outcome">' + (s.outcome || '') + '</div>' +
+      '<div class="log-pattern">' + (s.pattern || '') + '</div>';
+    logEl.appendChild(el);
+  });
+}
+
+async function synthesizeProfile(){
+  const sessions = getSessions();
+  const errEl = document.getElementById('profileError');
+  errEl.textContent = '';
+  if(sessions.length < 2){ errEl.textContent = 'Log at least two sessions before looking for patterns.'; return; }
+  if(modelChain.length === 0){ errEl.textContent = 'Connect your key in settings first.'; return; }
+  const btn = document.getElementById('synthBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+
+  const summaries = sessions.map((s, i) =>
+    (i + 1) + '. With ' + s.character + '. Outcome: ' + s.outcome + ' | What worked: ' + s.whatWorked + ' | What hurt: ' + s.whatHurt +
+    ' | Missed: ' + s.missedOpportunity + ' | Pattern: ' + s.pattern
+  ).join('\n');
+
+  const prompt = `You are the BAIT Angler Profile system. Below are debrief summaries from a user's past training sessions across different characters, most recent first.
+
+${summaries}
+
+Look across all sessions and identify real recurring patterns, not a summary of any single session. Be blunt and specific, base every claim on the actual sessions given. Respond with valid JSON only, no markdown, no code fences, no preamble, in exactly this shape:
+{"summary": "", "strengths": "", "developing": "", "mistake": ""}
+Each value should be one to two sentences, direct, no filler. "summary" is one line capturing the user's overall trajectory across sessions.`;
+
+  try{
+    const raw = await requestGemini([{ role: 'user', parts: [{ text: prompt }] }], null);
+    const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    document.getElementById('synth-summary').textContent = parsed.summary || '';
+    document.getElementById('synth-strengths').textContent = parsed.strengths || '';
+    document.getElementById('synth-developing').textContent = parsed.developing || '';
+    document.getElementById('synth-mistake').textContent = parsed.mistake || '';
+    document.getElementById('synthResult').style.display = 'block';
+  } catch(e){
+    errEl.textContent = 'Analysis failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Find my patterns';
+  }
+}
+
+function clearHistory(){
+  storageRemove('bait_sessions');
+  renderProfile();
+}
+
+window.addEventListener('load', () => {
+  const savedKey = storageGet('bait_apiKey');
+  if(savedKey){
+    document.getElementById('apiKeyInput').value = savedKey;
+    testConnection();
+  } else {
+    document.getElementById('gearBtn').classList.add('needs-setup');
+    openSettings();
+  }
+  renderCharacterList();
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+});
+</script>
+</body>
+</html>
